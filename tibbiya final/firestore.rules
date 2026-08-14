@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function myProfile() { return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data; }
+    function myRole() { return isSignedIn() ? myProfile().role : null; }
+    function isAdmin() { return isSignedIn() && myRole() == "admin"; }
+    function isTeacher() { return isSignedIn() && myRole() == "teacher"; }
+    function isTeacherOrAdmin() { return isTeacher() || isAdmin(); }
+
+    // ---- profiles ----
+    // Anyone signed in can read profiles (needed for the admin users
+    // list and for showing a lecture's author). Only the owner or an
+    // admin can write, and only an admin can change `role`.
+    match /profiles/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow update: if isAdmin() ||
+        (isSignedIn() && request.auth.uid == uid &&
+         request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
+    }
+
+    // ---- streaks ----
+    match /streaks/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ---- public "registered students" counter ----
+    match /meta/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // ---- subjects (managed only by admins) ----
+    match /subjects/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ---- lectures / materials (content_type: "video" | "note") ----
+    match /lectures/{id} {
+      allow read: if isSignedIn();
+      allow create: if isTeacherOrAdmin();
+      allow update, delete: if isAdmin() ||
+        (isTeacher() && resource.data.published_by == request.auth.uid);
+    }
+
+    // ---- teacher join requests ----
+    match /teacherRequests/{uid} {
+      allow create: if isSignedIn() && request.auth.uid == uid &&
+        request.resource.data.status == "pending";
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ---- activity log ----
+    match /activity_log/{id} {
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.user_id == request.auth.uid;
+    }
+
+    // ---- saved items (student bookmarks) ----
+    match /saved_items/{id} {
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow read, delete: if isSignedIn() && resource.data.user_id == request.auth.uid;
+    }
+
+    // ---- QR attendance ----
+    match /attendance_records/{id} {
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow read: if isTeacherOrAdmin() ||
+        (isSignedIn() && resource.data.user_id == request.auth.uid);
+    }
+  }
+}

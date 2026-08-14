@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() { return request.auth != null; }
+
+    // Lecture videos & PDF ملازم — any signed-in user can view/download,
+    // only signed-in users can upload (Firestore rules still gate who is
+    // allowed to actually attach the resulting URL to a lecture doc).
+    match /lectures/{subjectId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /materials/{subjectId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Avatars — public read (shown on profile), only the owner can upload.
+    match /avatars/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+  }
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>طبيّة | لوحة الأستاذ</title>
+<meta name="theme-color" content="#14304A">
+<link rel="manifest" href="manifest.json">
+<script>
+  (function(){
+    var t = localStorage.getItem('tibbiya-theme') ||
+      (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-body">
+
+<div id="authGuard" class="auth-guard-overlay"><div class="guard-spinner"></div></div>
+
+<div class="admin-shell" id="teacherShell" style="display:none;">
+
+  <aside class="admin-sidebar">
+    <div class="admin-brand">
+      <svg viewBox="0 0 64 64" fill="none" class="admin-logo">
+        <circle cx="32" cy="32" r="32" fill="var(--primary)"/>
+        <path d="M18 50 V24 A14 14 0 0 1 46 24 V50 Z" fill="var(--bg-main)"/>
+        <rect x="6" y="20" width="9" height="32" rx="1.5" fill="var(--accent)" transform="rotate(-28 15 52)"/>
+        <rect x="49" y="20" width="9" height="32" rx="1.5" fill="var(--accent)" transform="rotate(28 49 52)"/>
+      </svg>
+      <div><div class="admin-brand-name">طبيّة</div><div class="admin-brand-sub">لوحة الأستاذ</div></div>
+    </div>
+    <nav class="admin-nav">
+      <button class="admin-nav-item active" data-tpanel="tp-lectures"><span class="nav-icon">🎬</span> نشر فيديو</button>
+      <button class="admin-nav-item" data-tpanel="tp-materials"><span class="nav-icon">📄</span> نشر ملف (PDF)</button>
+      <button class="admin-nav-item" data-tpanel="tp-myContent"><span class="nav-icon">📋</span> محتواي المنشور</button>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <div class="admin-user-info">
+        <div class="admin-avatar" id="teacherAvatar">أ</div>
+        <div>
+          <div class="admin-user-name" id="teacherName">أستاذ</div>
+          <div class="admin-user-role">Teacher</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="theme-toggle-btn" id="themeToggle" style="flex:0 0 auto;">🌙</button>
+        <button class="admin-logout-btn" id="teacherLogoutBtn" style="flex:1;">🚪 خروج</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <section class="admin-panel active" id="tp-lectures">
+      <div class="admin-panel-header"><h1>نشر فيديو أو محاضرة 🎬</h1></div>
+      <div class="admin-form-card">
+        <div class="admin-form-grid">
+          <div class="form-group">
+            <label>المادة الدراسية</label>
+            <select id="lecSubjectSelect" class="admin-select"><option value="">اختر مادة...</option></select>
+          </div>
+          <div class="form-group"><label>عنوان المحاضرة</label><input id="lecTitle" type="text" placeholder="الدرس الأول"></div>
+          <div class="form-group" style="grid-column:1/-1;"><label>رابط YouTube (اختياري)</label><input id="lecUrl" type="url"></div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>رفع ملف فيديو مباشر (اختياري)</label>
+            <div class="file-drop" id="lecDrop">📎 اختر ملف فيديو من جهازك<input type="file" id="lecFile" accept="video/*" style="display:none;"></div>
+            <div class="upload-progress" id="lecProgress" style="display:none;">
+              <div class="progress-bar"><div class="progress-fill" id="lecProgressFill"></div></div>
+              <span id="lecProgressText">0%</span>
+            </div>
+          </div>
+        </div>
+        <button class="btn-primary" id="publishLecBtn">🚀 نشر الفيديو الآن</button>
+      </div>
+    </section>
+
+    <section class="admin-panel" id="tp-materials">
+      <div class="admin-panel-header"><h1>نشر ملف أو ملزمة 📄</h1></div>
+      <div class="admin-form-card">
+        <div class="admin-form-grid">
+          <div class="form-group">
+            <label>المادة الدراسية</label>
+            <select id="matSubjectSelect" class="admin-select"><option value="">اختر مادة...</option></select>
+          </div>
+          <div class="form-group"><label>عنوان الملف</label><input id="matTitle" type="text" placeholder="ملزمة التشريح"></div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>ملف PDF</label>
+            <div class="file-drop" id="matDrop">📎 اختر ملف PDF<input type="file" id="matFile" accept=".pdf,application/pdf" style="display:none;"></div>
+            <div class="upload-progress" id="matProgress" style="display:none;">
+              <div class="progress-bar"><div class="progress-fill" id="matProgressFill"></div></div>
+              <span id="matProgressText">0%</span>
+            </div>
+          </div>
+        </div>
+        <button class="btn-primary" id="publishMatBtn">🚀 رفع الملف الآن</button>
+      </div>
+    </section>
+
+    <section class="admin-panel" id="tp-myContent">
+      <div class="admin-panel-header"><h1>محتواي المنشور 📋</h1><p>تستطيع تصفح المحتوى الخاص بك وحذفه إذا لزم الأمر.</p></div>
+      <div class="form-group" style="max-width:300px;">
+        <label>اختر المادة</label>
+        <select id="myContentSubjectSelect" class="admin-select"><option value="">اختر مادة...</option></select>
+      </div>
+      <div class="admin-tabs" style="margin-top:16px;">
+        <button class="admin-tab active" data-tsubtab="my-lec-tab">🎬 فيديوهات</button>
+        <button class="admin-tab" data-tsubtab="my-mat-tab">📄 ملفات (PDF)</button>
+      </div>
+      <div class="admin-subtab active" id="my-lec-tab"><div id="myLecList" class="admin-list"><div class="admin-empty">اختر مادة</div></div></div>
+      <div class="admin-subtab" id="my-mat-tab"><div id="myMatList" class="admin-list"><div class="admin-empty">اختر مادة</div></div></div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="alert"></div>
+
+<script type="module" src="js/firebase-client.js"></script>
+<script src="js/theme.js"></script>
+<script type="module" src="js/teacher.js"></script>
+</body>
+</html>
