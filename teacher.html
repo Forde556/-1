@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>طبيّة | لوحة الاستاذ</title>
+<meta name="theme-color" content="#14304A">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="teacher-shell" id="teacherShell" style="display:none;">
+
+  <div class="teacher-topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="32" cy="32" r="32" fill="#14304A"/>
+        <path d="M18 50 V24 A14 14 0 0 1 46 24 V50 Z" fill="#FBF9F6"/>
+        <rect x="6" y="20" width="9" height="32" rx="1.5" fill="#F4A340" transform="rotate(-28 15 52)"/>
+        <circle cx="12.5" cy="36" r="1.3" fill="#14304A" transform="rotate(-28 15 52)"/>
+        <rect x="49" y="20" width="9" height="32" rx="1.5" fill="#F4A340" transform="rotate(28 49 52)"/>
+        <circle cx="55.5" cy="36" r="1.3" fill="#14304A" transform="rotate(28 49 52)"/>
+        <path d="M32 27c-2.6 0-4 1.6-6 1.6-2.1 0-3.3-1.3-3.3 2.6 0 5.2 2 11.7 4 11.7 1.6 0 1.7-3.9 2.6-4.2.6-.2 1 0 1.6 0h2c.6 0 1-.2 1.6 0 .9.3 1 4.2 2.6 4.2 2 0 4-6.5 4-11.7 0-3.9-1.2-2.6-3.3-2.6-2 0-3.4-1.6-6-1.6Z" fill="#14304A"/>
+      </svg>
+      <span class="brand-name">لوحة الاستاذ</span>
+    </div>
+    <a href="app.html" class="icon-btn" aria-label="رجوع لتطبيق الطالب">‹</a>
+  </div>
+
+  <div class="grid-header">
+    <h1>نشر المحاضرات والملازم</h1>
+    <p>اختر المادة، ثم أضف محاضرة فيديو أو ملزمة PDF — تنعرض فورًا لكل الطلاب.</p>
+  </div>
+
+  <div class="subject-select-row">
+    <select id="subjectSelect"><option>جاري تحميل المواد...</option></select>
+  </div>
+
+  <!-- ============ ADD VIDEO LECTURE ============ -->
+  <div class="upload-card">
+    <h3>🎬 إضافة محاضرة (فيديو)</h3>
+    <div class="field">
+      <label>عنوان المحاضرة</label>
+      <input type="text" id="lecTitle" placeholder="مثال: محاضرة 1 - مقدمة">
+    </div>
+    <div class="field">
+      <label>رقم المحاضرة</label>
+      <input type="number" id="lecNumber" placeholder="1" min="0">
+    </div>
+    <div class="field">
+      <label>رابط الفيديو (يوتيوب / درايف) — أو اختر ملف بالأسفل</label>
+      <input type="url" id="lecUrl" placeholder="https://...">
+    </div>
+    <label class="file-drop" id="lecDrop">
+      📎 اختياري: اختر ملف فيديو من جهازك ليُرفع مباشرة
+      <input type="file" id="lecFile" accept="video/*">
+    </label>
+    <div class="progress-track" id="lecProgressTrack"><div class="progress-fill" id="lecProgressFill"></div></div>
+    <button class="primary-btn" id="lecSubmitBtn">نشر المحاضرة</button>
+  </div>
+
+  <!-- ============ ADD ملزمة (NOTE / PDF) ============ -->
+  <div class="upload-card">
+    <h3>📑 إضافة ملزمة (PDF) — قسم الملازم</h3>
+    <div class="field">
+      <label>عنوان الملزمة</label>
+      <input type="text" id="matTitle" placeholder="مثال: ملزمة الفصل الأول">
+    </div>
+    <div class="field">
+      <label>رقم الترتيب</label>
+      <input type="number" id="matNumber" placeholder="1" min="0">
+    </div>
+    <div class="field">
+      <label>رابط الملف (اختياري إذا رفعت ملف بالأسفل)</label>
+      <input type="url" id="matUrl" placeholder="https://...">
+    </div>
+    <label class="file-drop" id="matDrop">
+      📎 اختر ملف PDF ليُرفع مباشرة
+      <input type="file" id="matFile" accept="application/pdf">
+    </label>
+    <div class="progress-track" id="matProgressTrack"><div class="progress-fill" id="matProgressFill"></div></div>
+    <button class="primary-btn" id="matSubmitBtn">نشر الملزمة</button>
+  </div>
+
+  <h3 class="section-label">المحتوى المنشور لهذه المادة</h3>
+  <div class="content-manage-list" id="contentManageList">
+    <div class="empty-state"><div class="e-icon">⏳</div><p class="e-sub">اختر مادة لعرض محتواها</p></div>
+  </div>
+</div>
+
+<!-- Shown if a non-teacher account opens this page -->
+<div class="teacher-guard" id="teacherGuard" style="display:none;">
+  <div class="e-icon">🔒</div>
+  <p class="e-title" style="font-weight:900; color:var(--ink); margin-bottom:8px;">هذه الصفحة مخصّصة لحسابات الاساتذة فقط</p>
+  <p class="e-sub">إذا كنت استاذًا، تواصل مع إدارة الموقع لتفعيل صلاحية الاستاذ على حسابك.</p>
+  <br>
+  <a href="app.html" class="primary-btn" style="display:inline-block; padding:12px 28px;">رجوع لتطبيق الطالب</a>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="js/firebase-client.js"></script>
+<script src="js/teacher.js" defer></script>
+</body>
+</html>

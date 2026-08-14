@@ -1,0 +1,29 @@
+rules_version = '2';
+// Firebase Storage rules — paste into Build → Storage → Rules.
+// (Separate console tab from Firestore rules; both are needed for
+// avatar upload + teacher ملازم/lecture uploads to work.)
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Profile avatars: only the owner can upload/replace their own
+    // photo, capped at 5MB, images only. Any signed-in user can view
+    // avatars (needed to show other students' initials/photos later).
+    match /avatars/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // ملازم (PDF handouts) and lecture video files: any signed-in
+    // student can read/download, but only a teacher account (checked
+    // against the Firestore profile, same rule as firestore.rules)
+    // can upload or delete.
+    match /materials/{subjectId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null &&
+        firestore.get(/databases/(default)/documents/profiles/$(request.auth.uid)).data.role == 'teacher';
+    }
+  }
+}

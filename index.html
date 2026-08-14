@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>طبيّة | تسجيل الدخول</title>
+<meta name="theme-color" content="#14304A">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="auth-wrap">
+
+  <button class="lang-pill" id="langToggle">
+    <span>🌐</span> <span id="langLabel">العربية</span>
+  </button>
+
+  <div class="auth-hero">
+    <svg class="mark" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="32" cy="32" r="32" fill="#14304A"/>
+      <path d="M18 50 V24 A14 14 0 0 1 46 24 V50 Z" fill="#FBF9F6"/>
+      <rect x="6" y="20" width="9" height="32" rx="1.5" fill="#F4A340" transform="rotate(-28 15 52)"/>
+      <circle cx="12.5" cy="36" r="1.3" fill="#14304A" transform="rotate(-28 15 52)"/>
+      <rect x="49" y="20" width="9" height="32" rx="1.5" fill="#F4A340" transform="rotate(28 49 52)"/>
+      <circle cx="55.5" cy="36" r="1.3" fill="#14304A" transform="rotate(28 49 52)"/>
+      <path d="M32 27c-2.6 0-4 1.6-6 1.6-2.1 0-3.3-1.3-3.3 2.6 0 5.2 2 11.7 4 11.7 1.6 0 1.7-3.9 2.6-4.2.6-.2 1 0 1.6 0h2c.6 0 1-.2 1.6 0 .9.3 1 4.2 2.6 4.2 2 0 4-6.5 4-11.7 0-3.9-1.2-2.6-3.3-2.6-2 0-3.4-1.6-6-1.6Z" fill="#14304A"/>
+    </svg>
+    <h1 class="auth-title" data-i18n="welcome">أهلاً بعودتك!</h1>
+    <p class="auth-sub" data-i18n="subtitle">سجّل دخولك لمتابعة محاضراتك وتفاعلك اليومي في طبيّة.</p>
+    <div class="student-counter" id="studentCounter">
+      <span class="sc-dot"></span>
+      <span>👥 <span class="sc-num" id="studentCountNum">…</span> طالب مسجّل بالموقع</span>
+    </div>
+  </div>
+
+  <!-- Social / provider auth -->
+  <div id="providerButtons">
+    <button class="auth-btn" id="btnWhatsapp">
+      <span data-i18n="viaWhatsapp">دخول عن طريق الواتساب</span>
+      <span class="glyph">💬</span>
+    </button>
+    <button class="auth-btn" id="btnGoogle">
+      <span data-i18n="viaGoogle">دخول عن طريق Google</span>
+      <span class="glyph">🇬</span>
+    </button>
+    <button class="auth-btn" id="btnEmail">
+      <span data-i18n="viaEmail">دخول عن طريق البريد الالكتروني</span>
+      <span class="glyph">✉️</span>
+    </button>
+    <button class="auth-btn" id="btnApple">
+      <span data-i18n="viaApple">دخول عن طريق Apple</span>
+      <span class="glyph"></span>
+    </button>
+  </div>
+
+  <!-- Email form, hidden until "email" chosen -->
+  <form id="emailForm" style="display:none;">
+    <div class="field">
+      <label data-i18n="emailLabel">البريد الالكتروني</label>
+      <input type="email" id="emailInput" required placeholder="name@example.com">
+    </div>
+    <div class="field">
+      <label data-i18n="passLabel">كلمة السر</label>
+      <input type="password" id="passInput" required placeholder="••••••••">
+    </div>
+    <div class="field" id="nameFields" style="display:none;">
+      <label data-i18n="nameLabel">الاسم الكامل</label>
+      <input type="text" id="nameInput" placeholder="عبدالله فاضل عبد عمران">
+    </div>
+    <button type="submit" class="primary-btn" id="emailSubmit" data-i18n="login">دخول</button>
+    <button type="button" class="ghost-link-btn" id="toggleMode" data-i18n="noAccountShort">ليس لديك حساب؟ أنشئ حساب جديد</button>
+    <button type="button" class="ghost-link-btn" id="backToProviders" data-i18n="back">رجوع</button>
+  </form>
+
+  <p class="auth-footer">
+    <span data-i18n="noAccount">ليس لديك حساب؟</span>
+    <a href="#" class="create-link" id="openCreate" data-i18n="createAccount">افتح حساب جديد</a>
+  </p>
+
+  <p class="legal">
+    <span data-i18n="legalPre">باستخدامك هذا التطبيق فإنك توافق على</span>
+    <a href="#" data-i18n="terms">شروط الاستخدام</a> <span data-i18n="and">و</span>
+    <a href="#" data-i18n="privacy">اتفاقية الخصوصية</a>
+  </p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="recaptcha-container"></div>
+<script type="module" src="js/firebase-client.js"></script>
+<script src="js/i18n.js" defer></script>
+<script src="js/auth-page.js" defer></script>
+</body>
+</html>

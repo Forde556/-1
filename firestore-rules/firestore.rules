@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: is the signed-in user a teacher? (role is set manually
+    // from the Firebase console — see README section 8 — never from
+    // the client, so this check can't be spoofed by a student.)
+    function isTeacher() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'teacher';
+    }
+
+    // Subjects: readable by any signed-in user. Managed via console
+    // or the seed script only (rare, structural changes).
+    match /subjects/{subjectId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Lectures + ملازم (content_type: "video" | "note") live in one
+    // collection. Any signed-in user can read; only a teacher account
+    // can publish or remove content — this is what makes the teacher
+    // dashboard and the student view safe to run from the same rules.
+    match /lectures/{lectureId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isTeacher();
+    }
+
+    match /qr_sessions/{sessionId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Profiles: readable by any signed-in user (usernames are public-ish),
+    // writable only by the owner. role can only be set to "student" on
+    // creation and can never be changed by the owner afterwards — that's
+    // what stops a student from self-promoting to teacher.
+    match /profiles/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId
+                    && request.resource.data.role == 'student';
+      allow update: if request.auth != null && request.auth.uid == userId
+                    && request.resource.data.role == resource.data.role;
+    }
+
+    // Streaks: owner only
+    match /streaks/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Activity log: owner can create and read their own entries
+    match /activity_log/{entryId} {
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Saved items: owner-only CRUD
+    match /saved_items/{itemId} {
+      allow read, delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update: if false;
+    }
+
+    // Attendance: owner can create/read their own scan record
+    match /attendance_records/{recordId} {
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Public site-wide counters (currently just meta/stats.studentCount).
+    // Readable by anyone — including signed-out visitors on the login
+    // screen — but only ever written by ensureUserDocs() via a merge
+    // increment when a brand-new account is created.
+    match /meta/{docId} {
+      allow read: if true;
+      allow create, update: if request.auth != null;
+      allow delete: if false;
+    }
+  }
+}
