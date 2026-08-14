@@ -1,34 +1,80 @@
-const CACHE_NAME = "tibbiya-v2";
-const SHELL = [
-  "index.html",
-  "app.html",
-  "teacher.html",
-  "css/style.css",
-  "js/firebase-client.js",
-  "js/i18n.js",
-  "js/app.js",
-  "js/auth-page.js",
-  "js/teacher.js",
-  "manifest.json"
+// ============================================================
+// طبيّة — sw.js
+// Service Worker for offline caching and PWA support
+// ============================================================
+
+const CACHE_NAME = 'tibbiya-cache-v3';
+const urlsToCache = [
+  './',
+  './index.html',
+  './app.html',
+  './admin.html',
+  './teacher.html',
+  './register-teacher.html',
+  './css/style.css',
+  './js/firebase-client.js',
+  './js/auth-page.js',
+  './js/app.js',
+  './js/admin.js',
+  './js/teacher.js',
+  './manifest.json',
+  'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap'
 ];
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)));
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
+  );
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
   );
+  self.clients.claim();
 });
 
-self.addEventListener("fetch", (e) => {
-  // Never cache Firebase/Firestore/Google API calls — always go to network
-  if (e.request.url.includes("googleapis.com") || e.request.url.includes("firebaseio.com") || e.request.url.includes("gstatic.com")) return;
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+self.addEventListener('fetch', event => {
+  // Only cache GET requests
+  if (event.request.method !== 'GET') return;
+  // Ignore Firestore/Auth API calls for caching
+  if (event.request.url.includes('firestore.googleapis.com') || event.request.url.includes('identitytoolkit.googleapis.com')) return;
+
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+        return fetch(event.request).then(
+          response => {
+            // Check if we received a valid response
+            if(!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // Clone the response
+            var responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+
+            return response;
+          }
+        );
+      })
   );
 });

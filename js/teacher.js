@@ -1,194 +1,250 @@
 // ============================================================
-// طبيّة | لوحة الاستاذ — teacher.js
-// Publishing side of "قسم الملازم": pick a subject, publish a video
-// lecture or a ملزمة (PDF), see/delete what's already published.
-// Guarded client-side by profile.role — and again server-side by
-// firestore.rules / storage.rules, so this page is safe even if
-// someone bypasses the UI check.
+// طبيّة — teacher.js  v2.0
+// Teacher panel: publish lectures & materials for their subjects
+// Guarded by role check on load
 // ============================================================
 
-let currentUser = null;
-let subjects = [];
-let selectedSubjectId = null;
+let currentTeacher = null;
+let subjectsCache  = [];
 
-function showToast(msg) {
+function showToast(msg, type = "info") {
   const t = document.getElementById("toast");
   t.textContent = msg;
-  t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 2400);
+  t.className = "toast show " + type;
+  setTimeout(() => t.classList.remove("show"), 3000);
 }
 
-function escapeHtml(str) {
-  return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function esc(str) {
+  return String(str ?? "").replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])
+  );
 }
 
-// ---------- file-drop labels (video + PDF) ----------
-function wireFileDrop(dropId, inputId, acceptLabel) {
-  const drop = document.getElementById(dropId);
+// ── Auth Guard ─────────────────────────────────────────────
+async function guardTeacher() {
+  await new Promise(r => setTimeout(r, 300));
+  if (!window.Auth) { window.location.href = "index.html"; return; }
+
+  const user = await new Promise(resolve =>
+    window.Auth.onAuthStateChanged(u => resolve(u))
+  );
+  if (!user) { window.location.href = "index.html"; return; }
+
+  const profile = await window.Api.getProfile(user.uid);
+  if (!profile) { window.location.href = "index.html"; return; }
+
+  if (profile.role === "admin")   { window.location.href = "admin.html"; return; }
+  if (profile.role !== "teacher") { window.location.href = "app.html";   return; }
+
+  currentTeacher = { ...profile, uid: user.uid };
+  document.getElementById("teacherName").textContent   = profile.full_name || "أستاذ";
+  document.getElementById("teacherAvatar").textContent = (profile.full_name || "أ")[0];
+
+  document.getElementById("authGuard").style.display   = "none";
+  document.getElementById("teacherShell").style.display = "flex";
+
+  await loadAllSubjects();
+}
+
+guardTeacher();
+
+// ── Panel Navigation ────────────────────────────────────────
+document.querySelectorAll(".admin-nav-item[data-tpanel]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".admin-panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".admin-nav-item").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tpanel).classList.add("active");
+  });
+});
+
+// Sub-tabs
+document.querySelectorAll(".admin-tab[data-tsubtab]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".admin-tab[data-tsubtab]").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".admin-subtab").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tsubtab).classList.add("active");
+  });
+});
+
+// ── Load Subjects ────────────────────────────────────────────
+async function loadAllSubjects() {
+  subjectsCache = await window.Api.getSubjects();
+  const opts = '<option value="">اختر مادة...</option>' +
+    subjectsCache.map(s => `<option value="${s.id}">${esc(s.icon || "📘")} ${esc(s.title)}</option>`).join("");
+  ["lecSubjectSelect", "matSubjectSelect", "myContentSubjectSelect"].forEach(id => {
+    document.getElementById(id).innerHTML = opts;
+  });
+}
+
+// ── File Drop Wiring ─────────────────────────────────────────
+function wireDrop(dropId, inputId, label) {
+  const drop  = document.getElementById(dropId);
   const input = document.getElementById(inputId);
+  drop.addEventListener("click", () => input.click());
   input.addEventListener("change", () => {
     if (input.files[0]) {
       drop.classList.add("has-file");
-      drop.childNodes[0].textContent = `📎 ${input.files[0].name}`;
+      drop.childNodes[0].textContent = "📎 " + input.files[0].name;
     } else {
       drop.classList.remove("has-file");
-      drop.childNodes[0].textContent = acceptLabel;
+      drop.childNodes[0].textContent = label;
     }
   });
 }
-wireFileDrop("lecDrop", "lecFile", "📎 اختياري: اختر ملف فيديو من جهازك ليُرفع مباشرة");
-wireFileDrop("matDrop", "matFile", "📎 اختر ملف PDF ليُرفع مباشرة");
+wireDrop("lecDrop", "lecFile", "📎 اختياري: اختر ملف فيديو من جهازك");
+wireDrop("matDrop", "matFile", "📎 اختر ملف PDF");
 
-// ---------- subject picker ----------
-async function loadSubjects() {
-  subjects = await Api.getSubjectsWithLectureCounts();
-  const select = document.getElementById("subjectSelect");
-  if (!subjects.length) {
-    select.innerHTML = `<option>لا توجد مواد مضافة بعد — أضفها من Firestore</option>`;
-    return;
-  }
-  select.innerHTML = subjects.map(s => `<option value="${s.id}">${escapeHtml(s.icon || "📘")} ${escapeHtml(s.title)}</option>`).join("");
-  selectedSubjectId = subjects[0].id;
-  await loadContentList();
-}
-document.getElementById("subjectSelect").addEventListener("change", async (e) => {
-  selectedSubjectId = e.target.value;
-  await loadContentList();
-});
+// ── Publish Lecture ──────────────────────────────────────────
+document.getElementById("publishLecBtn").addEventListener("click", async () => {
+  const subjectId = document.getElementById("lecSubjectSelect").value;
+  const title     = document.getElementById("lecTitle").value.trim();
+  const url       = document.getElementById("lecUrl").value.trim();
+  const file      = document.getElementById("lecFile").files[0];
 
-// ---------- manage list for the selected subject ----------
-async function loadContentList() {
-  const el = document.getElementById("contentManageList");
-  if (!selectedSubjectId) return;
-  el.innerHTML = `<div class="empty-state"><div class="e-icon">⏳</div><p class="e-sub">جاري التحميل...</p></div>`;
-  const items = await Api.getAllContentForSubject(selectedSubjectId);
-  if (!items.length) {
-    el.innerHTML = `<div class="empty-state">
-      <div class="e-icon">📭</div>
-      <p class="e-title">لا يوجد محتوى منشور لهذه المادة بعد</p>
-      <p class="e-sub">أضف محاضرة أو ملزمة من الأعلى وتظهر هنا فورًا.</p>
-    </div>`;
-    return;
-  }
-  el.innerHTML = items.map(it => `
-    <div class="content-row">
-      <div class="c-type">${it.content_type === "note" ? "📑" : "🎬"}</div>
-      <div class="c-info">
-        <p class="c-title">${escapeHtml(it.title)}</p>
-        <p class="c-meta">${it.content_type === "note" ? "ملزمة" : "محاضرة"} ${it.lecture_number ?? ""}</p>
-      </div>
-      <button class="c-delete" data-id="${it.id}" data-path="${it.file_path || ""}" aria-label="حذف">🗑️</button>
-    </div>
-  `).join("");
-  el.querySelectorAll(".c-delete").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      if (!confirm("حذف هذا العنصر نهائيًا؟")) return;
-      btn.disabled = true;
-      await Api.deleteContent(btn.dataset.id, btn.dataset.path || null);
-      showToast("تم الحذف");
-      loadContentList();
-    });
-  });
-}
+  if (!subjectId) { showToast("اختر المادة أولاً", "error"); return; }
+  if (!title)     { showToast("يرجى إدخال عنوان المحاضرة", "error"); return; }
+  if (!url && !file) { showToast("يرجى إضافة رابط أو ملف للمحاضرة", "error"); return; }
 
-// ---------- publish a video lecture ----------
-document.getElementById("lecSubmitBtn").addEventListener("click", async () => {
-  const title = document.getElementById("lecTitle").value.trim();
-  const number = document.getElementById("lecNumber").value;
-  const url = document.getElementById("lecUrl").value.trim();
-  const file = document.getElementById("lecFile").files[0];
+  const btn = document.getElementById("publishLecBtn");
+  btn.disabled = true; btn.textContent = "جاري النشر...";
 
-  if (!selectedSubjectId) return showToast("اختر مادة أولاً");
-  if (!title) return showToast("اكتب عنوان المحاضرة");
-  if (!url && !file) return showToast("ضع رابط فيديو أو اختر ملف");
-
-  const btn = document.getElementById("lecSubmitBtn");
-  btn.disabled = true;
   try {
-    let finalUrl = url, filePath = null;
+    let file_url = null;
     if (file) {
-      const track = document.getElementById("lecProgressTrack");
+      const prog = document.getElementById("lecProgress");
       const fill = document.getElementById("lecProgressFill");
-      track.classList.add("show");
-      const path = `materials/${selectedSubjectId}/${Date.now()}_${file.name}`;
-      const res = await Api.uploadFile(path, file, (pct) => { fill.style.width = pct + "%"; });
-      finalUrl = res.url; filePath = res.path;
-      track.classList.remove("show"); fill.style.width = "0%";
+      const text = document.getElementById("lecProgressText");
+      prog.style.display = "block";
+      file_url = await window.Api.uploadFile(
+        `lectures/${subjectId}/${Date.now()}_${file.name}`, file,
+        p => { fill.style.width = p + "%"; text.textContent = p + "%"; }
+      );
+      prog.style.display = "none";
     }
-    await Api.addContent(selectedSubjectId, {
-      title, lecture_number: number, content_type: "video", url: finalUrl, file_path: filePath
+    await window.Api.addLecture(subjectId, {
+      title,
+      youtube_url:  url || null,
+      file_url:     file_url || null,
+      published_by: currentTeacher.uid
     });
+    showToast("✅ تم نشر المحاضرة بنجاح");
     document.getElementById("lecTitle").value = "";
-    document.getElementById("lecNumber").value = "";
-    document.getElementById("lecUrl").value = "";
-    document.getElementById("lecFile").value = "";
+    document.getElementById("lecUrl").value   = "";
+    document.getElementById("lecFile").value  = "";
     document.getElementById("lecDrop").classList.remove("has-file");
-    document.getElementById("lecDrop").childNodes[0].textContent = "📎 اختياري: اختر ملف فيديو من جهازك ليُرفع مباشرة";
-    showToast("تم نشر المحاضرة ✅");
-    loadContentList();
-  } catch (err) {
-    showToast("تعذّر النشر، حاول مجددًا");
-  } finally {
-    btn.disabled = false;
-  }
+    document.getElementById("lecDrop").childNodes[0].textContent = "📎 اختياري: اختر ملف فيديو من جهازك";
+  } catch (e) { showToast("خطأ: " + e.message, "error"); }
+  finally { btn.disabled = false; btn.textContent = "🚀 نشر المحاضرة"; }
 });
 
-// ---------- publish a ملزمة (PDF) ----------
-document.getElementById("matSubmitBtn").addEventListener("click", async () => {
-  const title = document.getElementById("matTitle").value.trim();
-  const number = document.getElementById("matNumber").value;
-  const url = document.getElementById("matUrl").value.trim();
-  const file = document.getElementById("matFile").files[0];
+// ── Publish Material ─────────────────────────────────────────
+document.getElementById("publishMatBtn").addEventListener("click", async () => {
+  const subjectId = document.getElementById("matSubjectSelect").value;
+  const title     = document.getElementById("matTitle").value.trim();
+  const file      = document.getElementById("matFile").files[0];
 
-  if (!selectedSubjectId) return showToast("اختر مادة أولاً");
-  if (!title) return showToast("اكتب عنوان الملزمة");
-  if (!url && !file) return showToast("ضع رابط ملف أو اختر PDF");
+  if (!subjectId) { showToast("اختر المادة أولاً", "error"); return; }
+  if (!title)     { showToast("يرجى إدخال اسم الملف", "error"); return; }
+  if (!file)      { showToast("يرجى اختيار ملف PDF", "error"); return; }
 
-  const btn = document.getElementById("matSubmitBtn");
-  btn.disabled = true;
+  const btn = document.getElementById("publishMatBtn");
+  btn.disabled = true; btn.textContent = "جاري الرفع...";
+
   try {
-    let finalUrl = url, filePath = null;
-    if (file) {
-      const track = document.getElementById("matProgressTrack");
-      const fill = document.getElementById("matProgressFill");
-      track.classList.add("show");
-      const path = `materials/${selectedSubjectId}/${Date.now()}_${file.name}`;
-      const res = await Api.uploadFile(path, file, (pct) => { fill.style.width = pct + "%"; });
-      finalUrl = res.url; filePath = res.path;
-      track.classList.remove("show"); fill.style.width = "0%";
-    }
-    await Api.addContent(selectedSubjectId, {
-      title, lecture_number: number, content_type: "note", url: finalUrl, file_path: filePath
+    const prog = document.getElementById("matProgress");
+    const fill = document.getElementById("matProgressFill");
+    const text = document.getElementById("matProgressText");
+    prog.style.display = "block";
+    const file_url = await window.Api.uploadFile(
+      `materials/${subjectId}/${Date.now()}_${file.name}`, file,
+      p => { fill.style.width = p + "%"; text.textContent = p + "%"; }
+    );
+    prog.style.display = "none";
+    await window.Api.addMaterial(subjectId, {
+      title, file_url, published_by: currentTeacher.uid
     });
+    showToast("✅ تم نشر الملف بنجاح");
     document.getElementById("matTitle").value = "";
-    document.getElementById("matNumber").value = "";
-    document.getElementById("matUrl").value = "";
-    document.getElementById("matFile").value = "";
+    document.getElementById("matFile").value  = "";
     document.getElementById("matDrop").classList.remove("has-file");
-    document.getElementById("matDrop").childNodes[0].textContent = "📎 اختر ملف PDF ليُرفع مباشرة";
-    showToast("تم نشر الملزمة ✅");
-    loadContentList();
-  } catch (err) {
-    showToast("تعذّر النشر، حاول مجددًا");
-  } finally {
-    btn.disabled = false;
-  }
+    document.getElementById("matDrop").childNodes[0].textContent = "📎 اختر ملف PDF";
+  } catch (e) { showToast("خطأ: " + e.message, "error"); }
+  finally { btn.disabled = false; btn.textContent = "🚀 نشر الملف"; }
 });
 
-// ---------- boot: guard by role, then load everything ----------
-async function bootstrap() {
-  currentUser = await Auth.getUser();
-  if (!currentUser) {
-    window.location.href = "index.html";
-    return;
-  }
-  const profile = await Api.getProfile(currentUser.id);
-  if (!profile || profile.role !== "teacher") {
-    document.getElementById("teacherGuard").style.display = "block";
-    return;
-  }
-  document.getElementById("teacherShell").style.display = "block";
-  await loadSubjects();
+// ── My Content ───────────────────────────────────────────────
+document.getElementById("myContentSubjectSelect").addEventListener("change", async (e) => {
+  const id = e.target.value;
+  if (!id) return;
+  loadMyLectures(id);
+  loadMyMaterials(id);
+});
+
+async function loadMyLectures(subjectId) {
+  const el = document.getElementById("myLecList");
+  el.innerHTML = '<div class="admin-loading">جاري التحميل...</div>';
+  try {
+    const all = await window.Api.getLectures(subjectId);
+    const mine = all.filter(l => l.published_by === currentTeacher.uid);
+    if (!mine.length) { el.innerHTML = '<div class="admin-empty">لم تنشر محاضرات في هذه المادة بعد</div>'; return; }
+    el.innerHTML = mine.map(l => `
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <strong>${esc(l.title)}</strong>
+            ${l.youtube_url ? `<a href="${esc(l.youtube_url)}" target="_blank" class="card-link">▶️</a>` : ""}
+            ${l.file_url    ? `<a href="${esc(l.file_url)}"    target="_blank" class="card-link">⬇️</a>` : ""}
+          </div>
+          <button class="admin-btn-danger" onclick="deleteMyLec('${subjectId}','${l.id}')">🗑️ حذف</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) { el.innerHTML = `<div class="admin-error">${esc(e.message)}</div>`; }
 }
 
-bootstrap();
+window.deleteMyLec = async (subjectId, id) => {
+  if (!confirm("هل تريد حذف هذه المحاضرة؟")) return;
+  try {
+    await window.Api.deleteLecture(subjectId, id);
+    showToast("تم الحذف");
+    loadMyLectures(subjectId);
+  } catch (e) { showToast("خطأ: " + e.message, "error"); }
+};
+
+async function loadMyMaterials(subjectId) {
+  const el = document.getElementById("myMatList");
+  el.innerHTML = '<div class="admin-loading">جاري التحميل...</div>';
+  try {
+    const all = await window.Api.getMaterials(subjectId);
+    const mine = all.filter(m => m.published_by === currentTeacher.uid);
+    if (!mine.length) { el.innerHTML = '<div class="admin-empty">لم تنشر ملازم في هذه المادة بعد</div>'; return; }
+    el.innerHTML = mine.map(m => `
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <div>
+            <strong>${esc(m.title)}</strong>
+            ${m.file_url ? `<a href="${esc(m.file_url)}" target="_blank" class="card-link">⬇️ تحميل</a>` : ""}
+          </div>
+          <button class="admin-btn-danger" onclick="deleteMyMat('${subjectId}','${m.id}')">🗑️ حذف</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) { el.innerHTML = `<div class="admin-error">${esc(e.message)}</div>`; }
+}
+
+window.deleteMyMat = async (subjectId, id) => {
+  if (!confirm("هل تريد حذف هذا الملف؟")) return;
+  try {
+    await window.Api.deleteMaterial(subjectId, id);
+    showToast("تم الحذف");
+    loadMyMaterials(subjectId);
+  } catch (e) { showToast("خطأ: " + e.message, "error"); }
+};
+
+// ── Logout ────────────────────────────────────────────────────
+document.getElementById("teacherLogoutBtn").addEventListener("click", async () => {
+  await window.Auth.signOut();
+  window.location.href = "index.html";
+});

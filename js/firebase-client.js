@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Firebase configuration & data layer.
 // Drop-in replacement for supabase-client.js — exposes the same
 // `Auth` and `Api` objects so app.js / auth-page.js work unchanged.
@@ -27,13 +27,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBKxq5Z92zYjjn1SBmFmWRW_jfW2u3EvS0",
-  authDomain: "ppo32-dbe59.firebaseapp.com",
-  projectId: "ppo32-dbe59",
-  storageBucket: "ppo32-dbe59.firebasestorage.app",
-  messagingSenderId: "118954286012",
-  appId: "1:118954286012:web:650f68780535ad9f32a9b9",
-  measurementId: "G-1KJQ271ZRY"
+  apiKey: "AIzaSyBL_7_tJuNMmTbRvFJg5igFeD3HfU61mdU",
+  authDomain: "max7-b1bc4.firebaseapp.com",
+  projectId: "max7-b1bc4",
+  storageBucket: "max7-b1bc4.firebasestorage.app",
+  messagingSenderId: "201739788532",
+  appId: "1:201739788532:web:afddaa4dcf3621fa8a3ea1",
+  measurementId: "G-9RMCZP1PFR"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -378,3 +378,4 @@ const Api = {
 window.Auth = Auth;
 window.Api = Api;
 window.dispatchEvent(new Event("firebase-ready"));
+
